@@ -1,0 +1,17 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fabric-etl"
+version = "0.0.0"
+description = "ETL tooling for Microsoft Fabric"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Panda Coop" }]
+classifiers = [
+    "Development Status :: 1 - Planning",
+]
+
+[project.urls]
+Homepage = "https://github.com/panda-coop/fabric-etl"
