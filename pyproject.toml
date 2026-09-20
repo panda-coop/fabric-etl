@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fabric-etl"
-version = "0.0.0"
+version = "0.0.1"
 description = "ETL tooling for Microsoft Fabric"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
