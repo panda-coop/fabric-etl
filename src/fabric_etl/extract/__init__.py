@@ -10,6 +10,9 @@ _HOME = {
     "csv": "csv",
     "Cdc": "cdc",
     "CdcOperation": "cdc",
+    "capture_instance": "cdc",
+    "max_lsn": "cdc",
+    "changes": "cdc",
 }
 
 
