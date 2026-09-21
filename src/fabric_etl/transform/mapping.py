@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import types
 import typing
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from typing import Any, ClassVar, Generic, TypeVar
 
@@ -131,3 +131,38 @@ class Mapping(Generic[S, T]):
                 resolved[name] = p.default(ns)
                 setattr(ns, name, resolved[name])
         self.params = resolved
+
+    @property
+    def source_table(self) -> str:
+        return self.source.full_name(**self.params)
+
+    @property
+    def target_table(self) -> str:
+        return self.target.full_name(**self.params)
+
+    def _quote_source(self, name: str) -> str:
+        driver = self.source.driver
+        return driver._quote(name) if driver is not None else name
+
+    def plan(self) -> list[MappedColumn]:
+        return list(self._plan)
+
+    def select_sql(self) -> str:
+        physical = {c.attr: c.physical for c in self.source.columns}
+        cols = ", ".join(
+            f"{self._quote_source(physical[mc.origin])} AS {mc.target}"
+            for mc in self._plan
+            if mc.kind != "param"
+        )
+        return f"SELECT {cols} FROM {self.source_table}"
+
+    def apply(self, rows: Iterable[S]) -> Iterator[T]:
+        for row in rows:
+            data: dict[str, Any] = {}
+            for mc in self._plan:
+                if mc.kind == "param":
+                    data[mc.target] = self.params[mc.origin]
+                else:
+                    value = getattr(row, mc.origin)
+                    data[mc.target] = mc.fn(value) if mc.fn is not None else value
+            yield self.target.cls.model_validate(data)
