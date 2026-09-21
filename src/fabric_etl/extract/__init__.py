@@ -3,7 +3,14 @@ package never pulls optional heavy deps (lxml, pyodbc)."""
 
 from typing import Any
 
-_HOME = {"sql": "sql", "select_sql": "sql", "xml": "xml", "csv": "csv"}
+_HOME = {
+    "sql": "sql",
+    "select_sql": "sql",
+    "xml": "xml",
+    "csv": "csv",
+    "Cdc": "cdc",
+    "CdcOperation": "cdc",
+}
 
 
 def __getattr__(name: str) -> Any:
