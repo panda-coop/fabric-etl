@@ -166,3 +166,25 @@ class Mapping(Generic[S, T]):
                     value = getattr(row, mc.origin)
                     data[mc.target] = mc.fn(value) if mc.fn is not None else value
             yield self.target.cls.model_validate(data)
+
+    def spark_select(self, df):
+        try:
+            from pyspark.sql.functions import col, lit
+        except ImportError as exc:
+            raise ImportError(
+                "pyspark is required for spark_select(); install fabric-etl[spark]"
+            ) from exc
+        with_fn = [mc.target for mc in self._plan if mc.fn is not None]
+        if with_fn:
+            raise NotImplementedError(
+                f"From.fn is not supported in spark_select (columns: {with_fn});"
+                " write SQL-side transforms by hand"
+            )
+        physical = {c.attr: c.physical for c in self.source.columns}
+        exprs = [
+            lit(self.params[mc.origin]).alias(mc.target)
+            if mc.kind == "param"
+            else col(physical[mc.origin]).alias(mc.target)
+            for mc in self._plan
+        ]
+        return df.select(*exprs)

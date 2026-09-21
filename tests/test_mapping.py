@@ -1,5 +1,7 @@
 """Tests for transform.mapping."""
 
+import sys
+import types
 from decimal import Decimal
 from typing import Annotated
 
@@ -198,3 +200,87 @@ def test_non_entity_side_raises():
 
         class Bad(Mapping[Src, Plain]):
             pass
+
+
+# spark_select: pyspark is not installed — fake modules injected into sys.modules.
+
+
+class FakeExpr:
+    def __init__(self, kind, value):
+        self.kind = kind
+        self.value = value
+        self.name = None
+
+    def alias(self, name):
+        self.name = name
+        return self
+
+
+class FakeDataFrame:
+    def select(self, *exprs):
+        self.exprs = exprs
+        return ("selected", exprs)
+
+
+def _install_fake_pyspark(monkeypatch):
+    functions = types.ModuleType("pyspark.sql.functions")
+    functions.col = lambda name: FakeExpr("col", name)
+    functions.lit = lambda value: FakeExpr("lit", value)
+    monkeypatch.setitem(sys.modules, "pyspark", types.ModuleType("pyspark"))
+    monkeypatch.setitem(sys.modules, "pyspark.sql", types.ModuleType("pyspark.sql"))
+    monkeypatch.setitem(sys.modules, "pyspark.sql.functions", functions)
+
+
+def test_spark_select_builds_col_and_lit_exprs(monkeypatch):
+    _install_fake_pyspark(monkeypatch)
+    df = FakeDataFrame()
+    result = SrcToTgt(tenant="ho00").spark_select(df)
+    assert result == ("selected", df.exprs)
+    assert [(e.kind, e.value, e.name) for e in df.exprs] == [
+        ("col", "quantity", "amount"),
+        ("col", "document_no", "document_no"),
+        ("col", "line_no", "line_no"),
+        ("lit", "ho00", "tenant"),
+    ]
+
+
+def test_spark_select_physical_source_names(monkeypatch):
+    _install_fake_pyspark(monkeypatch)
+
+    class ErpToBronzePlain(Mapping[ErpSalesLine, BronzeSalesLine]):
+        tenant = Param()
+        company = Param(default=lambda p: p.tenant[:2].upper())
+
+        amount = From("quantity")
+
+    df = FakeDataFrame()
+    ErpToBronzePlain(tenant="ho00").spark_select(df)
+    assert [(e.kind, e.value, e.name) for e in df.exprs] == [
+        ("col", "Quantity", "amount"),
+        ("col", "Document No_", "document_no"),
+        ("col", "Line No_", "line_no"),
+        ("lit", "ho00", "tenant"),
+    ]
+
+
+def test_spark_select_rejects_fn(monkeypatch):
+    _install_fake_pyspark(monkeypatch)
+    m = ErpToBronze(tenant="ho00")  # amount carries a quantize fn
+    with pytest.raises(NotImplementedError, match=r"\['amount'\]"):
+        m.spark_select(FakeDataFrame())
+
+
+def test_spark_select_missing_pyspark(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pyspark", None)  # force ImportError on import
+    with pytest.raises(ImportError, match=r"fabric-etl\[spark\]"):
+        SrcToTgt(tenant="ho00").spark_select(FakeDataFrame())
+
+
+def test_package_reexports():
+    import fabric_etl.transform as transform
+
+    assert transform.Mapping is Mapping
+    assert transform.From is From
+    assert transform.Param is Param
+    assert transform.MappedColumn is MappedColumn
+    assert transform.MAPPINGS is MAPPINGS
