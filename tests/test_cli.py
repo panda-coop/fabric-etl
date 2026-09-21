@@ -226,3 +226,84 @@ def test_ddl_driver_override(tmp_path):
     sql = (out / "dbo" / "cli_sample.sql").read_text()
     assert "USING DELTA" in sql
     assert "tenant string" in sql
+
+
+BAD_NAME_MODULE = """
+from typing import Annotated
+
+from pydantic import BaseModel
+
+from fabric_etl.entities import Col, entity
+from fabric_etl.entities.drivers import Warehouse
+
+
+@entity(schema="dbo", table="Sales Line$2024", driver=Warehouse)
+class BadName(BaseModel):
+    tenant: Annotated[str, Col(length=4, pk=True)]
+"""
+
+WARNING_MODULE = """
+from typing import Annotated
+
+from pydantic import BaseModel
+
+from fabric_etl.entities import Col, entity
+from fabric_etl.entities.drivers import Warehouse
+
+
+@entity(schema="dbo", table="cli_nav", driver=Warehouse)
+class NavAttrs(BaseModel):
+    DocumentNo: Annotated[str, Col(length=20, name="document_no", pk=True)]
+"""
+
+FSTRING_MODULE = """
+from typing import Annotated
+
+from pydantic import BaseModel
+
+from fabric_etl.entities import Col, entity
+from fabric_etl.entities.drivers import Warehouse
+
+SUFFIX = "2024"
+
+
+@entity(schema="dbo", table=f"sales_{SUFFIX}", driver=Warehouse)
+class Dynamic(BaseModel):
+    tenant: Annotated[str, Col(length=4, pk=True)]
+"""
+
+
+def test_lint_clean_registry(tmp_path, monkeypatch, capsys):
+    from fabric_etl.entities import REGISTRY
+
+    REGISTRY.clear()
+    name = write_module(tmp_path, monkeypatch, "cli_lint_clean")
+    assert main(["lint", "--registry", name]) == 0
+    assert capsys.readouterr().out == ""
+
+
+def test_lint_bad_name_exits_1(tmp_path, monkeypatch, capsys):
+    from fabric_etl.entities import REGISTRY
+
+    REGISTRY.clear()
+    name = write_module(tmp_path, monkeypatch, "cli_lint_bad", BAD_NAME_MODULE)
+    assert main(["lint", "--registry", name]) == 1
+    assert "E001" in capsys.readouterr().out
+
+
+def test_lint_strict_promotes_warnings(tmp_path, monkeypatch, capsys):
+    from fabric_etl.entities import REGISTRY
+
+    REGISTRY.clear()
+    name = write_module(tmp_path, monkeypatch, "cli_lint_warn", WARNING_MODULE)
+    assert main(["lint", "--registry", name]) == 0
+    assert "W001" in capsys.readouterr().out
+    assert main(["lint", "--registry", name, "--strict"]) == 1
+    assert "W001" in capsys.readouterr().out
+
+
+def test_lint_static_fstring_e002(tmp_path, capsys):
+    src = tmp_path / "cli_lint_static.py"
+    src.write_text(FSTRING_MODULE)
+    assert main(["lint", "--registry", str(src)]) == 1
+    assert "E002" in capsys.readouterr().out

@@ -1,4 +1,4 @@
-"""Command line interface over the registry: docs, dbml and ddl emission."""
+"""Command line interface over the registry: docs, dbml, ddl and lint."""
 
 from __future__ import annotations
 
@@ -132,6 +132,22 @@ def _cmd_ddl(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_lint(args: argparse.Namespace) -> int:
+    if args.mode == "static" or _is_path(args.registry):
+        from fabric_etl.static import lint_static
+
+        findings = lint_static([args.registry], strict=args.strict)
+    else:
+        importlib.import_module(args.registry)
+        from fabric_etl.entities import REGISTRY
+        from fabric_etl.entities.lint import lint
+
+        findings = lint(REGISTRY, strict=args.strict)
+    for finding in findings:
+        print(finding)
+    return 1 if any(f.level == "error" for f in findings) else 0
+
+
 def _add_registry_args(sub: argparse.ArgumentParser) -> None:
     sub.add_argument(
         "--registry",
@@ -163,6 +179,11 @@ def _build_parser() -> argparse.ArgumentParser:
     ddl.add_argument("--out", required=True, help="output directory")
     ddl.add_argument("--driver", choices=_DDL_DRIVERS, help="override the entity driver")
     ddl.set_defaults(func=_cmd_ddl)
+
+    lint = sub.add_parser("lint", help="lint entity names and driver constraints")
+    _add_registry_args(lint)
+    lint.add_argument("--strict", action="store_true", help="promote warnings to errors")
+    lint.set_defaults(func=_cmd_lint)
 
     return parser
 
