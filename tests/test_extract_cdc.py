@@ -8,7 +8,16 @@ from pydantic import BaseModel, ValidationError
 
 from fabric_etl.entities import Col, entity
 from fabric_etl.entities.drivers import SqlServer
-from fabric_etl.extract.cdc import Cdc, CdcOperation, capture_instance, changes, max_lsn
+from fabric_etl.extract.cdc import (
+    Cdc,
+    CdcOperation,
+    capture_instance,
+    changes,
+    get_watermark,
+    max_lsn,
+    set_watermark,
+    window,
+)
 
 
 @entity(
@@ -172,3 +181,69 @@ def test_changes_streams_lazily():
     assert conn.last_cursor.executed == []  # nothing until iterated
     next(it)
     assert len(conn.last_cursor.executed) == 1
+
+
+GET_SQL = "SELECT value FROM control.watermark WHERE job = ?"
+MERGE_SQL = (
+    "MERGE control.watermark AS t USING (SELECT ? AS job, ? AS value) AS s"
+    " ON t.job = s.job"
+    " WHEN MATCHED THEN UPDATE SET t.value = s.value, t.updated = SYSUTCDATETIME()"
+    " WHEN NOT MATCHED THEN INSERT (job, value, updated)"
+    " VALUES (s.job, s.value, SYSUTCDATETIME());"
+)
+
+
+def test_watermark_get_set_golden():
+    conn = FakeConnection([])
+    set_watermark(conn, "nb_nav_sales_lines", LSN[5])
+    assert conn.last_cursor.executed == [(MERGE_SQL, ("nb_nav_sales_lines", LSN[5].hex()))]
+    assert conn.commits == 1
+
+    conn = FakeConnection([(LSN[5].hex(),)])
+    assert get_watermark(conn, "nb_nav_sales_lines") == LSN[5]
+    assert conn.last_cursor.executed == [(GET_SQL, ("nb_nav_sales_lines",))]
+
+
+def test_watermark_missing_is_none():
+    conn = FakeConnection([])
+    assert get_watermark(conn, "unknown") is None
+
+
+def test_window_advances_watermark_only_after_exhaustion():
+    def fresh():
+        return FakeConnection(
+            [(LSN[0].hex(),)],  # get_watermark
+            [(LSN[9],)],  # max_lsn
+            CHANGE_ROWS,  # changes
+            [],  # merge
+        )
+
+    conn = fresh()
+    it = window(ErpSalesLine, conn, job="j", company="HO")
+    next(it)
+    next(it)  # half consumed: watermark untouched
+    assert not any("MERGE" in s for s, _ in conn.last_cursor.executed)
+    assert conn.commits == 0
+
+    conn = fresh()
+    out = list(window(ErpSalesLine, conn, job="j", company="HO"))
+    assert len(out) == 4
+    assert conn.last_cursor.executed[0] == (GET_SQL, ("j",))
+    assert conn.last_cursor.executed[-1] == (MERGE_SQL, ("j", LSN[9].hex()))
+    assert conn.commits == 1
+
+
+def test_window_none_watermark_falls_back_to_min_lsn():
+    conn = FakeConnection(
+        [],  # get_watermark: no row
+        [(LSN[9],)],  # max_lsn
+        [(LSN[1],)],  # min_lsn
+        CHANGE_ROWS[:1],  # changes
+        [],  # merge
+    )
+    out = list(window(ErpSalesLine, conn, job="j", company="HO"))
+    assert len(out) == 1
+    executed = conn.last_cursor.executed
+    assert executed[2] == ("SELECT sys.fn_cdc_get_min_lsn(?)", (INSTANCE,))
+    assert executed[3] == (CHANGES_SQL, (LSN[1], LSN[9]))
+    assert executed[-1] == (MERGE_SQL, ("j", LSN[9].hex()))

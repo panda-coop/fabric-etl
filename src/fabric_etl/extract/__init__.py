@@ -13,6 +13,9 @@ _HOME = {
     "capture_instance": "cdc",
     "max_lsn": "cdc",
     "changes": "cdc",
+    "get_watermark": "cdc",
+    "set_watermark": "cdc",
+    "window": "cdc",
 }
 
 

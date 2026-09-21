@@ -85,3 +85,49 @@ def changes(
                 seqval=seqval,
                 row=info.cls.model_validate(dict(zip(attrs, values, strict=True))),
             )
+
+
+def _watermark_table() -> str:
+    from fabric_etl.load.control import Watermark  # lazy: keep extract import-light
+
+    return Watermark.__entity__.full_name()
+
+
+def get_watermark(conn: Any, job: str) -> bytes | None:
+    """Last committed LSN for job from control.watermark (hex-decoded), or None."""
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT value FROM {_watermark_table()} WHERE job = ?", (job,))
+    row = cursor.fetchone()
+    return bytes.fromhex(row[0]) if row else None
+
+
+def set_watermark(conn: Any, job: str, lsn: bytes) -> None:
+    """Upsert the job's LSN, hex-encoded; updated is set server-side."""
+    cursor = conn.cursor()
+    cursor.execute(
+        f"MERGE {_watermark_table()} AS t USING (SELECT ? AS job, ? AS value) AS s"
+        " ON t.job = s.job"
+        " WHEN MATCHED THEN UPDATE SET t.value = s.value, t.updated = SYSUTCDATETIME()"
+        " WHEN NOT MATCHED THEN INSERT (job, value, updated)"
+        " VALUES (s.job, s.value, SYSUTCDATETIME());",
+        (job, lsn.hex()),
+    )
+    conn.commit()
+
+
+def window(
+    entity_cls: type,
+    conn: Any,
+    *,
+    job: str,
+    instance: str | None = None,
+    **params: Any,
+) -> Iterator[Cdc[Any]]:
+    """One incremental pass: changes from the job's watermark (capture minimum
+    on first run) up to the current max LSN. The watermark advances to that max
+    only after full consumption — a partially consumed iterator leaves it
+    untouched, so a re-run replays the same window."""
+    from_lsn = get_watermark(conn, job)
+    to_lsn = max_lsn(conn)
+    yield from changes(entity_cls, conn, from_lsn, to_lsn, instance=instance, **params)
+    set_watermark(conn, job, to_lsn)
