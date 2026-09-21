@@ -34,6 +34,8 @@ class Client:
         self.backoff = backoff
         self.log_hook = log_hook
         self.correlation_id = uuid.uuid4().hex
+        # QueryAuth exposes .masked — those query params are hidden in log events.
+        self._masked: frozenset[str] = frozenset(getattr(auth, "masked", ()))
         self._client = httpx.Client(
             base_url=base_url,
             auth=auth,
@@ -99,9 +101,15 @@ class Client:
         self.log_hook(
             {
                 "method": resp.request.method,
-                "url": str(resp.request.url),
+                "url": self._mask(resp.request.url),
                 "status": resp.status_code,
                 "elapsed": resp.elapsed.total_seconds(),
                 "correlation_id": self.correlation_id,
             }
         )
+
+    def _mask(self, url: httpx.URL) -> str:
+        replaced = {k: "***" for k in self._masked if k in url.params}
+        if replaced:
+            url = url.copy_merge_params(replaced)
+        return str(url)
