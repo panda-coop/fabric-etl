@@ -41,3 +41,9 @@ class Lakehouse(Driver):
         if info.schema is None:
             return table
         return f"{resolve(info.schema, **params)}.{table}"
+
+    @classmethod
+    def ddl(cls, info: EntityInfo, **params: Any) -> str:
+        # Delta has no PK/FK constraints — pk/fks are documentation only here.
+        body = ",\n    ".join(cls._column_lines(info))
+        return f"CREATE TABLE {cls.full_name(info, **params)} (\n    {body}\n) USING DELTA"

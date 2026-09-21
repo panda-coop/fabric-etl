@@ -49,3 +49,45 @@ class Driver:
     @classmethod
     def ddl(cls, info: EntityInfo, **params: Any) -> str:
         raise NotImplementedError
+
+    @classmethod
+    def _quote(cls, name: str) -> str:
+        return name
+
+    @classmethod
+    def _qualify(cls, dotted: str) -> str:
+        return ".".join(cls._quote(p) for p in dotted.split("."))
+
+    @classmethod
+    def _column_lines(cls, info: EntityInfo) -> list[str]:
+        return [
+            f"{cls._quote(c.physical)} {cls.render(c.py_type, c.col)}"
+            f" {'NULL' if cls.nullable(c) else 'NOT NULL'}"
+            for c in info.columns
+        ]
+
+    @classmethod
+    def _fk_lines(cls, info: EntityInfo, suffix: str = "") -> list[str]:
+        lines = []
+        for c in info.columns:
+            if c.col.fk:  # "schema.table.column"
+                table, _, ref_col = c.col.fk.rpartition(".")
+                lines.append(
+                    f"FOREIGN KEY ({cls._quote(c.physical)}) REFERENCES"
+                    f" {cls._qualify(table)} ({cls._quote(ref_col)}){suffix}"
+                )
+        by_attr = {c.attr: c for c in info.columns}
+        for attrs, ref in info.fks.items():  # {("a", "b"): "s.t.(x,y)"}
+            table, _, cols_part = ref.partition(".(")
+            ref_cols = [r.strip() for r in cols_part.rstrip(")").split(",")]
+            local = ", ".join(cls._quote(by_attr[a].physical) for a in attrs)
+            remote = ", ".join(cls._quote(r) for r in ref_cols)
+            lines.append(
+                f"FOREIGN KEY ({local}) REFERENCES {cls._qualify(table)} ({remote}){suffix}"
+            )
+        return lines
+
+    @classmethod
+    def _create_table(cls, info: EntityInfo, lines: list[str], **params: Any) -> str:
+        body = ",\n    ".join(lines)
+        return f"CREATE TABLE {cls.full_name(info, **params)} (\n    {body}\n)"

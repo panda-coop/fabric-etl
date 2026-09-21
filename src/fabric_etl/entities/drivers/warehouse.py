@@ -55,3 +55,13 @@ class Warehouse(Driver):
         if info.schema is None:
             return table
         return f"{resolve(info.schema, **params)}.{table}"
+
+    @classmethod
+    def ddl(cls, info: EntityInfo, **params: Any) -> str:
+        # Warehouse constraints are metadata only: NOT ENFORCED, no identity.
+        lines = cls._column_lines(info)
+        if info.pk:
+            cols = ", ".join(c.physical for c in info.pk)
+            lines.append(f"PRIMARY KEY NONCLUSTERED ({cols}) NOT ENFORCED")
+        lines.extend(cls._fk_lines(info, suffix=" NOT ENFORCED"))
+        return cls._create_table(info, lines, **params)

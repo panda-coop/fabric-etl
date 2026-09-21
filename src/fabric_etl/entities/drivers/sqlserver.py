@@ -43,3 +43,15 @@ class SqlServer(Driver):
     def full_name(cls, info: EntityInfo, **params: Any) -> str:
         parts = [info.database, info.schema, info.table]
         return ".".join(f"[{resolve(p, **params)}]" for p in parts if p is not None)
+
+    @classmethod
+    def _quote(cls, name: str) -> str:
+        return f"[{name}]"
+
+    @classmethod
+    def ddl(cls, info: EntityInfo, **params: Any) -> str:
+        lines = cls._column_lines(info)
+        if info.pk:
+            lines.append(f"PRIMARY KEY ({', '.join(cls._quote(c.physical) for c in info.pk)})")
+        lines.extend(cls._fk_lines(info))
+        return cls._create_table(info, lines, **params)
