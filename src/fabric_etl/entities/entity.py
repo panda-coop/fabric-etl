@@ -139,7 +139,7 @@ def entity(
         items: record path — XPath (xml) / dotted (json, http).
 
     Returns:
-        The class decorator.
+        Callable: the class decorator.
     """
 
     def wrap(cls: type) -> type:

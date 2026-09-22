@@ -70,6 +70,11 @@ importing user code, so docs and lint run in CI without pyodbc, lxml, httpx or S
 Dependency rule: `entities`, `transform`, `docs`, `static` never import `extract` or
 `load`; everything heavy is an extra.
 
+The full public API is documented in the Reference section:
+[entities](reference/entities.md), [transform](reference/transform.md),
+[extract](reference/extract.md), [load](reference/load.md),
+[settings](reference/settings.md).
+
 ## License
 
 [GPL-3.0-or-later](https://github.com/panda-coop/fabric-etl/blob/main/LICENSE).

@@ -39,3 +39,9 @@ nav:
       - Extract: guide/extract.md
       - Load: guide/load.md
       - CLI: guide/cli.md
+  - Reference:
+      - entities: reference/entities.md
+      - transform: reference/transform.md
+      - extract: reference/extract.md
+      - load: reference/load.md
+      - settings: reference/settings.md
