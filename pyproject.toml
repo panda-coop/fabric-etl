@@ -47,7 +47,9 @@ dev = [
     "griffe>=1.0",
 ]
 site = [
-    "zensical>=0.0.64",
+    # Zensical is pre-1.0; the pin keeps builds reproducible — bump it
+    # deliberately together with a local `zensical build`.
+    "zensical==0.0.64",
     "mkdocstrings-python>=2",
 ]
 

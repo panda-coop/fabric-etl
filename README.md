@@ -1,24 +1,17 @@
 # fabric-etl
 
-Schema-as-code for Microsoft Fabric. Tables are described as Pydantic models with an
-`@entity` decorator; from that description the package generates DDL, documentation
-(markdown, DBML, JSON Schema, lineage), mappings between sources and target tables,
-and typed I/O for loaders.
+[![PyPI](https://img.shields.io/pypi/v/fabric-etl)](https://pypi.org/project/fabric-etl/)
+[![tests](https://img.shields.io/github/actions/workflow/status/panda-coop/fabric-etl/test.yml?label=tests)](https://github.com/panda-coop/fabric-etl/actions/workflows/test.yml)
+[![docs](https://img.shields.io/github/actions/workflow/status/panda-coop/fabric-etl/github-pages.yml?label=docs)](https://panda-coop.github.io/fabric-etl/)
+[![license](https://img.shields.io/github/license/panda-coop/fabric-etl)](LICENSE)
 
-Not an ORM: no sessions, no query builder, no lazy relations — a data description
-layer, per-platform type translation, a mapping layer, and artifact generation.
+Schema-as-code for Microsoft Fabric. Tables are described as Pydantic models
+with an `@entity` decorator; from that description the package generates DDL,
+documentation (markdown, DBML, JSON Schema, lineage), typed source-to-target
+mappings, and typed I/O for loaders. Not an ORM — no sessions, no query
+builder, no lazy relations.
 
-## Install
-
-```bash
-pip install fabric-etl            # core: entities, transform, docs emitters
-pip install "fabric-etl[sql]"     # pyodbc extractors / plan drift
-pip install "fabric-etl[http]"    # httpx client + auth strategies
-pip install "fabric-etl[xml]"     # streaming XML extractor
-pip install "fabric-etl[azure]"   # pydantic-settings with Azure Key Vault source
-```
-
-## Quick look
+**Documentation: <https://panda-coop.github.io/fabric-etl/>**
 
 ```python
 from decimal import Decimal
@@ -36,31 +29,30 @@ class BronzeSalesLine(BaseModel):
     amount: Annotated[Decimal, Col(precision=18, scale=2)] = Field(description="Line amount")
 ```
 
-```bash
-fabric-etl docs --registry myproj.schema --out docs/schema
-fabric-etl dbml --registry myproj.schema --out docs/schema.dbml
-fabric-etl ddl  --registry myproj.schema --out sql/
-fabric-etl lint --registry myproj.schema --strict
+```sh
+fabric-etl docs --registry myproj.schema --out docs/schema   # markdown + lineage
+fabric-etl dbml --registry myproj.schema --out schema.dbml   # ER diagram source
+fabric-etl ddl  --registry myproj.schema --out sql/          # CREATE TABLE per entity
+fabric-etl lint --registry myproj.schema --strict            # naming/type rules
 ```
 
-`docs --check` regenerates into a temp dir and fails on drift — wire it into CI.
-The static extractor (`--mode static`, griffe-based) builds the same registry
-without importing user code, so docs and lint run in CI without pyodbc, lxml,
-httpx or Spark.
+Install extras per surface: `[sql]` `[cdc]` `[xml]` `[http]` `[spark]`
+`[docs]` `[settings]` `[azure]` — the core depends on pydantic alone, and
+docs/lint run in CI without any platform driver installed.
 
-## Layout
+## Development
 
-| package | role |
-|---|---|
-| `entities` | `@entity`, `Col`, `REGISTRY`, drivers (SqlServer / Warehouse / Lakehouse), lint |
-| `transform` | `Mapping`, `From`, `Param` — typed source→target mappings |
-| `extract` | sql / xml / csv / http / cdc readers driven by source entities |
-| `load` | DDL, drift plan, warehouse/lakehouse writers, control tables |
-| `docs` | markdown, DBML, JSON Schema, lineage, driver-reference emitters |
-| `static` | griffe-based no-import registry extraction for CI |
+Prerequisites: Python >= 3.11 and [uv](https://docs.astral.sh/uv/).
 
-Dependency rule: `entities`, `transform`, `docs`, `static` never import `extract`
-or `load`; everything heavy is an extra.
+```sh
+uv sync --group dev
+uv run pytest                          # 238 tests
+uv run ruff check . && uv run ruff format --check .
+uv run --group site zensical serve    # docs preview
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full gate and commit
+conventions.
 
 ## License
 

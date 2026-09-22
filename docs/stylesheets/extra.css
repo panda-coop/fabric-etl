@@ -1,0 +1,13 @@
+/* PANDA Coop brand primary (#095189) for the docs site. */
+:root {
+  --md-primary-fg-color: #095189;
+  --md-primary-fg-color--light: #2e6ea3;
+  --md-primary-fg-color--dark: #063a63;
+  --md-accent-fg-color: #0d6cb5;
+}
+
+/* Flat header: no elevation shadow, also when scrolled. */
+.md-header,
+.md-header--shadow {
+  box-shadow: none;
+}
