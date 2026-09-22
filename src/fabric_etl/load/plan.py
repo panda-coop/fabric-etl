@@ -24,6 +24,16 @@ _TYPE = re.compile(r"^(\w+)(?:\((\d+)(?:,\s*(\d+))?\))?$")
 
 @dataclass(frozen=True)
 class PlanAction:
+    """One drift action.
+
+    Attributes:
+        kind: "create" (with the CREATE TABLE statement as detail),
+            "add_column" (an ALTER TABLE ... ADD statement) or
+            "recreate" (human-readable reasons — the rebuild is manual).
+        entity: the drifting entity.
+        detail: statement or reasons, per kind.
+    """
+
     kind: str  # "create" | "add_column" | "recreate"
     entity: EntityInfo
     detail: str
@@ -46,7 +56,20 @@ def _type_mismatch(rendered: str, data_type: str, char_len: Any, prec: Any, scal
 
 
 def plan(registry: Registry, conn: Any, **params: Any) -> list[PlanAction]:
-    """Diff every non-source entity against the live INFORMATION_SCHEMA."""
+    """Diff every non-source entity against the live INFORMATION_SCHEMA.
+
+    Type comparison is deliberately loose: base name always, length for
+    char/binary, precision/scale for decimal. Entities whose ``{placeholder}``s
+    are not satisfied by params are skipped — not bound to a physical table.
+
+    Args:
+        registry: entities to check.
+        conn: any DB-API 2 connection to the target database.
+        **params: values for ``{placeholder}``s in schema/table names.
+
+    Returns:
+        Actions in registry order; empty means no drift.
+    """
     actions: list[PlanAction] = []
     cursor = conn.cursor()
     for info in registry.entities():

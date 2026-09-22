@@ -11,7 +11,20 @@ from typing import Any
 @dataclass(frozen=True)
 class Col:
     """Column metadata a Python type cannot express. SQL type strings are
-    forbidden here — `native` is the only per-driver escape hatch."""
+    forbidden here — `native` is the only per-driver escape hatch.
+
+    Attributes:
+        length: varchar(n) / varbinary(n) length.
+        precision: decimal precision (defaults to 18 when rendered).
+        scale: decimal scale (defaults to 0 when rendered).
+        nullable: explicit override; otherwise nullability comes from ``T | None``.
+        default: column default, documentation only.
+        pk: primary key member; composite PK order = field declaration order.
+        fk: single-column foreign key as ``"schema.table.column"``.
+        name: physical column name when it differs from the attribute.
+        native: per-driver rendered type, e.g. ``{"warehouse": "varbinary(16)"}``.
+        path: XML XPath / dotted JSON path for source entities.
+    """
 
     length: int | None = None
     precision: int | None = None
@@ -27,6 +40,17 @@ class Col:
 
 @dataclass(frozen=True)
 class ColumnInfo:
+    """One introspected model field.
+
+    Attributes:
+        attr: Python attribute name.
+        physical: ``col.name`` or ``attr``.
+        py_type: unwrapped type (``T | None`` stripped to ``T``).
+        optional: whether the annotation was ``T | None``.
+        col: the ``Col`` annotation (default ``Col()`` if none given).
+        description: from ``Field(description=...)``.
+    """
+
     attr: str
     physical: str
     py_type: type
@@ -45,7 +69,14 @@ def _unwrap(annotation: Any) -> tuple[type, bool]:
 
 
 def columns(cls: type) -> list[ColumnInfo]:
-    """ColumnInfo per model field, in declaration order."""
+    """ColumnInfo per model field, in declaration order.
+
+    Args:
+        cls: a pydantic model class.
+
+    Returns:
+        One ``ColumnInfo`` per field, ``Col`` annotations resolved.
+    """
     out: list[ColumnInfo] = []
     for attr, field in cls.model_fields.items():
         col = next((m for m in field.metadata if isinstance(m, Col)), Col())

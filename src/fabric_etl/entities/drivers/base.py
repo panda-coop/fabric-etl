@@ -16,13 +16,34 @@ class UnsupportedType(ValueError):
 
 class Driver:
     """All-classmethod, never instantiated. `types` is the public supported-type
-    contract (docs emit it); `render` substitutes Col parameters into it."""
+    contract (docs emit it); `render` substitutes Col parameters into it.
+
+    Attributes:
+        name: driver id — "sqlserver" | "warehouse" | "lakehouse" | "http";
+            also the key looked up in ``Col.native``.
+        types: supported Python types and their rendered SQL templates.
+    """
 
     name: str
     types: dict[type, str]
 
     @classmethod
     def render(cls, py_type: type, col: Col) -> str:
+        """The platform type for a Python type / Col combination.
+
+        ``Col.native`` entries keyed by this driver's name win outright.
+
+        Args:
+            py_type: the unwrapped Python type (``ColumnInfo.py_type``).
+            col: the column's ``Col`` annotation.
+
+        Returns:
+            The SQL type string, e.g. ``varchar(20)``.
+
+        Raises:
+            UnsupportedType: the type is not in ``types`` or violates a
+                platform constraint (e.g. Warehouse str without length).
+        """
         if col.native and cls.name in col.native:
             return col.native[cls.name]
         if py_type not in cls.types:
@@ -38,16 +59,19 @@ class Driver:
 
     @staticmethod
     def nullable(column: ColumnInfo) -> bool:
+        """Effective nullability: explicit ``Col.nullable`` wins over ``T | None``."""
         if column.col.nullable is not None:
             return column.col.nullable
         return column.optional
 
     @classmethod
     def full_name(cls, info: EntityInfo, **params: Any) -> str:
+        """The platform-qualified name, ``{placeholder}``s resolved from params."""
         raise NotImplementedError
 
     @classmethod
     def ddl(cls, info: EntityInfo, **params: Any) -> str:
+        """The CREATE TABLE statement for the entity on this platform."""
         raise NotImplementedError
 
     @classmethod

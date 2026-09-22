@@ -1,0 +1,54 @@
+{
+  "description": "One row per load run: job, timing, row count, outcome.",
+  "properties": {
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    },
+    "finished": {
+      "format": "date-time",
+      "title": "Finished",
+      "type": "string"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "job": {
+      "title": "Job",
+      "type": "string"
+    },
+    "rows": {
+      "title": "Rows",
+      "type": "integer"
+    },
+    "started": {
+      "format": "date-time",
+      "title": "Started",
+      "type": "string"
+    },
+    "status": {
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "job",
+    "started",
+    "finished",
+    "rows",
+    "status"
+  ],
+  "title": "RunLog",
+  "type": "object"
+}

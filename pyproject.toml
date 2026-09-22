@@ -46,6 +46,10 @@ dev = [
     "pydantic-settings>=2.6",
     "griffe>=1.0",
 ]
+site = [
+    "zensical>=0.0.64",
+    "mkdocstrings-python>=2",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fabric_etl"]

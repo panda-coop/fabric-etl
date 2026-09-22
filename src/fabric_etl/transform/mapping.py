@@ -18,7 +18,12 @@ MAPPINGS: list[type[Mapping]] = []
 
 class Param:
     """A parameter of one concrete transfer. `default` is a plain value or a
-    callable receiving a namespace of the already-resolved params."""
+    callable receiving a namespace of the already-resolved params.
+
+    ``default=None`` makes the param required. A target column whose name
+    matches a Param is filled from it; params also resolve ``{placeholder}``s
+    in the source/target table names.
+    """
 
     def __init__(self, default: Any = None) -> None:
         self.default = default
@@ -26,7 +31,11 @@ class Param:
 
 class From:
     """Map a target attribute from a differently named source attribute,
-    optionally through `fn` (value -> value)."""
+    optionally through `fn` (value -> value).
+
+    ``fn`` runs in :meth:`Mapping.apply` only — :meth:`Mapping.spark_select`
+    rejects plans that carry one.
+    """
 
     def __init__(self, source: str, fn: Callable | None = None) -> None:
         self.source = source
@@ -35,6 +44,15 @@ class From:
 
 @dataclass(frozen=True)
 class MappedColumn:
+    """One target column in a mapping's plan.
+
+    Attributes:
+        target: target attribute name.
+        origin: source attribute name, or param name for kind "param".
+        kind: "field" (same name), "renamed" (via From) or "param".
+        fn: the From transform, if any.
+    """
+
     target: str
     origin: str  # source attr name, or param name
     kind: str  # "field" | "renamed" | "param"
@@ -51,7 +69,14 @@ def _entity_info(cls: type, arg: Any, side: str) -> EntityInfo:
 class Mapping(Generic[S, T]):
     """Usage: `class X(Mapping[Src, Tgt])`. Same-name fields map automatically;
     `From` renames/transforms; a target column matching a `Param` is filled from
-    it. Coverage is validated at class-definition time."""
+    it. Coverage is validated at class-definition time.
+
+    A required target field (non-optional, no default) covered by neither a
+    same-name source field, From, nor Param raises TypeError when the class is
+    defined. Instantiating with a missing required Param raises TypeError too.
+    Every concrete subclass registers itself in ``transform.MAPPINGS`` for the
+    lineage emitter; ``job`` is the join key to a Fabric notebook/pipeline.
+    """
 
     job: str | None = None  # Fabric notebook/pipeline join key
 
@@ -134,10 +159,12 @@ class Mapping(Generic[S, T]):
 
     @property
     def source_table(self) -> str:
+        """Source full name, ``{placeholder}``s resolved from the instance params."""
         return self.source.full_name(**self.params)
 
     @property
     def target_table(self) -> str:
+        """Target full name, ``{placeholder}``s resolved from the instance params."""
         return self.target.full_name(**self.params)
 
     def _quote_source(self, name: str) -> str:
@@ -145,9 +172,16 @@ class Mapping(Generic[S, T]):
         return driver._quote(name) if driver is not None else name
 
     def plan(self) -> list[MappedColumn]:
+        """The column plan, one MappedColumn per covered target, sorted by target."""
         return list(self._plan)
 
     def select_sql(self) -> str:
+        """SELECT of the mapped source columns, each aliased to its target attribute.
+
+        Physical names are quoted by the source driver; param columns are not
+        selected — they have no source column. The result set feeds directly
+        into the target model.
+        """
         physical = {c.attr: c.physical for c in self.source.columns}
         cols = ", ".join(
             f"{self._quote_source(physical[mc.origin])} AS {mc.target}"
@@ -157,6 +191,15 @@ class Mapping(Generic[S, T]):
         return f"SELECT {cols} FROM {self.source_table}"
 
     def apply(self, rows: Iterable[S]) -> Iterator[T]:
+        """Transform source rows into validated target models, lazily.
+
+        Args:
+            rows: source model instances (or anything with the source attributes).
+
+        Yields:
+            One validated target model per input row; params fill their columns,
+            ``From.fn`` runs per value.
+        """
         for row in rows:
             data: dict[str, Any] = {}
             for mc in self._plan:
@@ -168,6 +211,16 @@ class Mapping(Generic[S, T]):
             yield self.target.cls.model_validate(data)
 
     def spark_select(self, df):
+        """The select_sql projection on a Spark DataFrame.
+
+        ``col(physical).alias(target)`` per mapped column, ``lit(param)`` per
+        param column.
+
+        Raises:
+            ImportError: pyspark is missing (install fabric-etl[spark]).
+            NotImplementedError: the plan carries a ``From.fn`` — Python
+                callables cannot be pushed into Spark column expressions.
+        """
         try:
             from pyspark.sql.functions import col, lit
         except ImportError as exc:

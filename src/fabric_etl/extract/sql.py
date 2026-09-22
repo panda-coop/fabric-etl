@@ -11,6 +11,13 @@ def select_sql(entity_cls: type, **params: Any) -> str:
 
     Names are quoted per the entity's driver (brackets for SqlServer, plain otherwise);
     {placeholder}s in the full name resolve from params.
+
+    Args:
+        entity_cls: an @entity class.
+        **params: values for ``{placeholder}``s in the table name.
+
+    Returns:
+        The SELECT statement.
     """
     info = entity_cls.__entity__
     from_ = info.full_name(**params)  # raises the clear no-driver error first
@@ -24,7 +31,16 @@ def select_sql(entity_cls: type, **params: Any) -> str:
 
 def sql(entity_cls: type, conn: Any, **params: Any) -> Iterator[Any]:
     """Execute select_sql on conn and yield validated models, one fetchmany batch
-    at a time — constant memory, never fetchall."""
+    at a time — constant memory, never fetchall.
+
+    Args:
+        entity_cls: an @entity class.
+        conn: any DB-API 2 connection (pyodbc, mssql-python, ...).
+        **params: values for ``{placeholder}``s in the table name.
+
+    Yields:
+        One validated model instance per row.
+    """
     info = entity_cls.__entity__
     cursor = conn.cursor()
     cursor.execute(select_sql(entity_cls, **params))

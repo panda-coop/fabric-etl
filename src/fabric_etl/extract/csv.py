@@ -10,7 +10,17 @@ from typing import IO, Any
 
 def csv(entity_cls: type, fh: IO, *, sep: str = ",", encoding: str = "utf-8") -> Iterator[Any]:
     """Yield validated models from a binary or text file object. Empty cells become
-    None for optional non-str fields so int/Decimal parsing survives blanks."""
+    None for optional non-str fields so int/Decimal parsing survives blanks.
+
+    Args:
+        entity_cls: an @entity class; the header row must carry the physical names.
+        fh: binary or text file object (binary is wrapped with ``encoding``).
+        sep: field delimiter.
+        encoding: used only when ``fh`` is binary.
+
+    Yields:
+        One validated model per data row.
+    """
     info = entity_cls.__entity__
     if isinstance(fh.read(0), bytes):
         fh = io.TextIOWrapper(fh, encoding=encoding, newline="")
