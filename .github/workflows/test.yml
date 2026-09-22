@@ -23,3 +23,11 @@ jobs:
 
       - name: Test
         run: uv run pytest
+
+      - name: Schema docs drift
+        run: uv run fabric-etl docs --registry fabric_etl.load.control --out docs/schema --check
+
+      - name: Build site
+        run: |
+          uv sync --group site
+          uv run zensical build
