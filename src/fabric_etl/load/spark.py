@@ -29,13 +29,11 @@ def _spark_type(types, c: ColumnInfo):
 
 
 def to_spark_schema(entity_cls: type):
-    """StructType with physical column names; nullable from Optional.
+    """StructType with physical column names; nullable from Optional,
+    ``DecimalType(p, s)`` from Col, str/UUID as string.
 
     Args:
         entity_cls: an @entity class.
-
-    Returns:
-        StructType: physical names, ``DecimalType(p, s)`` from Col, str/UUID as string.
 
     Raises:
         ImportError: pyspark is missing (install fabric-etl[spark]).

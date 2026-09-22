@@ -1,0 +1,25 @@
+{
+  "description": "Last processed position per job (LSN hex, timestamp, id \u2014 as a string).",
+  "properties": {
+    "job": {
+      "title": "Job",
+      "type": "string"
+    },
+    "updated": {
+      "format": "date-time",
+      "title": "Updated",
+      "type": "string"
+    },
+    "value": {
+      "title": "Value",
+      "type": "string"
+    }
+  },
+  "required": [
+    "job",
+    "value",
+    "updated"
+  ],
+  "title": "Watermark",
+  "type": "object"
+}

@@ -70,6 +70,12 @@ importing user code, so docs and lint run in CI without pyodbc, lxml, httpx or S
 Dependency rule: `entities`, `transform`, `docs`, `static` never import `extract` or
 `load`; everything heavy is an extra.
 
+The Schema section is dogfood: [those pages](schema/index.md) are emitted by
+fabric-etl itself from its own control entities (`control.run_log`,
+`control.watermark` — see [control entities](guide/load.md#control-entities)) and
+kept honest by `docs --check` in CI — exactly the workflow this package proposes
+for your schemas.
+
 The full public API is documented in the Reference section:
 [entities](reference/entities.md), [transform](reference/transform.md),
 [extract](reference/extract.md), [load](reference/load.md),

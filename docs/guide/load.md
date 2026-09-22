@@ -72,7 +72,7 @@ Builds a pyspark `StructType` with *physical* column names, nullability from
 ## Control entities
 
 fabric-etl's own operational tables ship as entities, declared with `@entity` exactly
-like user tables:
+like user tables (see [the dogfooded schema pages](../schema/index.md)):
 
 | entity | table | purpose |
 |---|---|---|

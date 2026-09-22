@@ -27,6 +27,7 @@ plugins:
 
 markdown_extensions:
   - admonition
+  - attr_list
   - pymdownx.superfences
   - pymdownx.details
   - tables
@@ -39,6 +40,10 @@ nav:
       - Extract: guide/extract.md
       - Load: guide/load.md
       - CLI: guide/cli.md
+  - Schema:
+      - Entities: schema/index.md
+      - control.run_log: schema/control/run_log.md
+      - control.watermark: schema/control/watermark.md
   - Reference:
       - entities: reference/entities.md
       - transform: reference/transform.md

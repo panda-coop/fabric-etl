@@ -137,9 +137,6 @@ def entity(
         indexes: index declarations (documentation only).
         endpoint: HTTP sources — the URL template.
         items: record path — XPath (xml) / dotted (json, http).
-
-    Returns:
-        Callable: the class decorator.
     """
 
     def wrap(cls: type) -> type:
