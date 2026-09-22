@@ -189,6 +189,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Entry point of the ``fabric-etl`` executable.
+
+    Args:
+        argv: arguments without the program name; None reads sys.argv.
+
+    Returns:
+        Process exit code: 0 ok, 1 findings/drift/missing dependency, 2 usage.
+    """
     parser = _build_parser()
     args = parser.parse_args(argv)
     if args.version:

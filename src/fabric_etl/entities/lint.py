@@ -19,6 +19,17 @@ _SNAKE = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
 @dataclass(frozen=True)
 class Finding:
+    """One lint result; str() renders ``path:line  CODE  message -> suggestion``.
+
+    Attributes:
+        path: source file of the entity class.
+        line: line the class ends on.
+        code: rule id (E001, E003, W001, W002; E002 comes from the static extractor).
+        level: "error" or "warning".
+        message: what is wrong.
+        suggestion: proposed fix, when one is mechanical.
+    """
+
     path: str
     line: int
     code: str
@@ -108,7 +119,15 @@ def _entity_findings(info: EntityInfo) -> list[Finding]:
 
 def lint(registry: Registry = REGISTRY, *, strict: bool = False) -> list[Finding]:
     """All findings, sorted by entity key. source=True entities never error:
-    their E-level findings are demoted to warnings and strict does not re-promote."""
+    their E-level findings are demoted to warnings and strict does not re-promote.
+
+    Args:
+        registry: the registry to lint; defaults to the global REGISTRY.
+        strict: promote warnings to errors (except on source entities).
+
+    Returns:
+        Findings in registry (entity-key) order.
+    """
     findings: list[Finding] = []
     for info in registry.entities():
         for f in _entity_findings(info):

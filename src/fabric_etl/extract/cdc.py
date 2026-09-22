@@ -26,7 +26,14 @@ class CdcOperation(IntEnum):
 
 
 class Cdc(BaseModel, Generic[T]):
-    """One change-table row: operation, LSN position, and the typed payload."""
+    """One change-table row: operation, LSN position, and the typed payload.
+
+    Attributes:
+        operation: what happened to the row (update rows come in before/after pairs).
+        start_lsn: transaction LSN — the incremental-load position.
+        seqval: order within the transaction.
+        row: the entity model built from the captured columns.
+    """
 
     operation: CdcOperation
     start_lsn: bytes
@@ -60,7 +67,19 @@ def changes(
 ) -> Iterator[Cdc[Any]]:
     """Stream typed change envelopes from cdc.fn_cdc_get_all_changes_<instance>,
     one fetchmany batch at a time. N'all update old' includes update-before rows.
-    from_lsn None starts at the capture instance's minimum LSN."""
+    from_lsn None starts at the capture instance's minimum LSN.
+
+    Args:
+        entity_cls: the @entity class describing the captured table.
+        conn: any DB-API 2 connection to the source database.
+        from_lsn: window start (inclusive), or None for the capture minimum.
+        to_lsn: window end (inclusive), usually :func:`max_lsn`.
+        instance: capture-instance override; defaults to :func:`capture_instance`.
+        **params: values for ``{placeholder}``s in the table name.
+
+    Yields:
+        ``Cdc[model]`` envelopes ordered by (start_lsn, seqval).
+    """
     info = entity_cls.__entity__
     instance = instance or capture_instance(entity_cls, **params)
     cursor = conn.cursor()
@@ -126,7 +145,18 @@ def window(
     """One incremental pass: changes from the job's watermark (capture minimum
     on first run) up to the current max LSN. The watermark advances to that max
     only after full consumption — a partially consumed iterator leaves it
-    untouched, so a re-run replays the same window."""
+    untouched, so a re-run replays the same window.
+
+    Args:
+        entity_cls: the @entity class describing the captured table.
+        conn: any DB-API 2 connection to the source database.
+        job: watermark key in control.watermark.
+        instance: capture-instance override; defaults to :func:`capture_instance`.
+        **params: values for ``{placeholder}``s in the table name.
+
+    Yields:
+        ``Cdc[model]`` envelopes for the window, ordered by (start_lsn, seqval).
+    """
     from_lsn = get_watermark(conn, job)
     to_lsn = max_lsn(conn)
     yield from changes(entity_cls, conn, from_lsn, to_lsn, instance=instance, **params)

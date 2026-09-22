@@ -36,7 +36,20 @@ def _merge_sql(info: EntityInfo, full: str, n_rows: int) -> str:
 
 def warehouse(entity_cls: type, rows: Iterable[Any], conn: Any, *, merge: bool = False) -> int:
     """Write entity instances or dicts (keyed by attribute) in batches of
-    BATCH_SIZE — constant memory. merge=True upserts on the primary key."""
+    BATCH_SIZE — constant memory. merge=True upserts on the primary key.
+
+    Args:
+        entity_cls: the target @entity class.
+        rows: model instances or attribute-keyed dicts; consumed lazily.
+        conn: any DB-API 2 connection; committed once at the end.
+        merge: MERGE on the primary key instead of plain INSERT.
+
+    Returns:
+        Rows written.
+
+    Raises:
+        ValueError: merge=True on an entity without a primary key.
+    """
     info: EntityInfo = entity_cls.__entity__
     full = info.full_name()
     if merge and not info.pk:
@@ -58,6 +71,12 @@ def warehouse(entity_cls: type, rows: Iterable[Any], conn: Any, *, merge: bool =
 
 
 def lakehouse(entity_cls: type, df: Any, *, mode: str = "append") -> None:
-    """Write a Spark DataFrame as a Delta table named by the entity."""
+    """Write a Spark DataFrame as a Delta table named by the entity.
+
+    Args:
+        entity_cls: the target @entity class (names the Delta table).
+        df: the Spark DataFrame to save.
+        mode: Spark save mode ("append", "overwrite", ...).
+    """
     info: EntityInfo = entity_cls.__entity__
     df.write.format("delta").mode(mode).saveAsTable(info.full_name())

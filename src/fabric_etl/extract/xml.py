@@ -37,7 +37,16 @@ def _value(node: Any, column: ColumnInfo) -> Any:
 
 def xml(entity_cls: type, source: IO[bytes] | str, **params: Any) -> Iterator[Any]:
     """Yield validated models per record element; fields resolve via Col.path as a
-    relative XPath, falling back to a child element named by the physical name."""
+    relative XPath, falling back to a child element named by the physical name.
+
+    Args:
+        entity_cls: an @entity class with ``items=`` naming the record element.
+        source: a file path or binary file object (anything lxml iterparse takes).
+        **params: unused today; reserved for symmetry with the other extractors.
+
+    Yields:
+        One validated model per record element, in document order.
+    """
     info = entity_cls.__entity__
     tag = _record_tag(info)
     for _, elem in etree.iterparse(source, events=("end",), tag=f"{{*}}{tag}"):

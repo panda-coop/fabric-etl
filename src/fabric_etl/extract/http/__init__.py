@@ -44,6 +44,18 @@ def http(entity_cls: type[M], client: Client, **params: Any) -> Iterator[M]:
     The record list is reached via the entity's dotted `items` path (None means
     the payload root; a dict there is a single record). Column values come from
     each column's Col.path, falling back to its physical name.
+
+    Args:
+        entity_cls: an @entity class with ``endpoint=`` (and usually ``items=``).
+        client: a :class:`Client`; auth and retries are its concern.
+        **params: values for ``{placeholder}``s in the endpoint.
+
+    Yields:
+        One validated model per record.
+
+    Raises:
+        TypeError: entity_cls is not an @entity class.
+        ValueError: no endpoint, or the items path did not reach a record list.
     """
     info = getattr(entity_cls, "__entity__", None)
     if info is None:

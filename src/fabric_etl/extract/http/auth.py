@@ -8,11 +8,16 @@ import httpx
 
 
 class Basic(httpx.BasicAuth):
-    """HTTP basic auth."""
+    """HTTP basic auth: ``Basic(username, password)``."""
 
 
 class Bearer(httpx.Auth):
-    """Bearer token; a zero-arg callable is re-evaluated per request."""
+    """Bearer token; a zero-arg callable is re-evaluated per request.
+
+    Args:
+        token_or_provider: the token, or a zero-arg callable returning one —
+            use a callable when the token rotates.
+    """
 
     def __init__(self, token_or_provider: str | Callable[[], str]) -> None:
         self._token = token_or_provider
@@ -24,7 +29,14 @@ class Bearer(httpx.Auth):
 
 
 class ClientCredentials(httpx.Auth):
-    """OAuth2 client-credentials flow: cached token, one refresh-and-replay on 401."""
+    """OAuth2 client-credentials flow: cached token, one refresh-and-replay on 401.
+
+    Args:
+        token_url: the token endpoint.
+        client_id: OAuth2 client id.
+        client_secret: OAuth2 client secret (resolve it from settings first).
+        scope: optional scope string.
+    """
 
     def __init__(
         self,
@@ -65,8 +77,12 @@ class ClientCredentials(httpx.Auth):
 class QueryAuth(httpx.Auth):
     """Credentials appended to every request's query string (legacy B2B vendors).
 
-    https is enforced — credentials never travel over plain http. The param
-    names in .masked are hidden by the client's log hook.
+    https is enforced — a plain-http request raises ValueError before any
+    credential leaves the process. The param names in ``.masked`` are hidden
+    by the client's log hook.
+
+    Args:
+        params: credential query params, e.g. ``{"user": ..., "key": ...}``.
     """
 
     def __init__(self, params: dict[str, str]) -> None:

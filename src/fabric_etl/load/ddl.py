@@ -14,7 +14,19 @@ def ddl(
     """CREATE TABLE for an @entity class or its EntityInfo.
 
     `driver` overrides info.driver. Source entities have no DDL — the drivers
-    render anything, so this wrapper is where the caller-side rule lives."""
+    render anything, so this wrapper is where the caller-side rule lives.
+
+    Args:
+        entity_or_info: an @entity class or its ``EntityInfo``.
+        driver: platform override (preview a model on another platform).
+        **params: values for ``{placeholder}``s in the table name.
+
+    Returns:
+        The CREATE TABLE statement.
+
+    Raises:
+        ValueError: source entity, or no driver anywhere.
+    """
     if isinstance(entity_or_info, EntityInfo):
         info = entity_or_info
     else:

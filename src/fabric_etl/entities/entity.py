@@ -32,6 +32,8 @@ def resolve(template: str, **params: Any) -> str:
 
 @dataclass
 class EntityInfo:
+    """Everything @entity knows about one model, stored at ``cls.__entity__``."""
+
     cls: type
     key: str  # f"{cls.__module__}.{cls.__qualname__}"
     schema: str | None
@@ -48,9 +50,23 @@ class EntityInfo:
 
     @property
     def pk(self) -> list[ColumnInfo]:
+        """Primary key columns, in declaration order."""
         return [c for c in self.columns if c.col.pk]
 
     def full_name(self, **params: Any) -> str:
+        """The platform-qualified table name, delegated to the driver.
+
+        Args:
+            **params: values for ``{placeholder}``s in schema/table/database.
+
+        Returns:
+            E.g. ``[db].[dbo].[table]`` for SqlServer, ``schema.table`` otherwise.
+
+        Raises:
+            ValueError: the entity has no driver.
+            KeyError: a ``{placeholder}`` is not covered by params (the message
+                names the missing ones).
+        """
         if self.driver is None:
             raise ValueError(
                 f"entity {self.key} has no driver; pass @entity(driver=...) or set"
@@ -60,6 +76,13 @@ class EntityInfo:
 
 
 class Registry:
+    """All registered entities, keyed by ``module.QualName``.
+
+    ``default_driver`` and ``default_schema`` fill in for entities declared
+    without their own; the module-level ``REGISTRY`` is the instance every
+    ``@entity`` registers into.
+    """
+
     default_driver: type[Driver] | None = None
     default_schema: str | None = None
 
@@ -67,15 +90,19 @@ class Registry:
         self._entities: dict[str, EntityInfo] = {}
 
     def register(self, info: EntityInfo) -> None:
+        """Add or replace an entity under its key."""
         self._entities[info.key] = info
 
     def get(self, key: str) -> EntityInfo:
+        """The entity registered under key; raises KeyError if absent."""
         return self._entities[key]
 
     def entities(self) -> list[EntityInfo]:
+        """All registered entities, sorted by key — deterministic for emitters."""
         return [self._entities[k] for k in sorted(self._entities)]
 
     def clear(self) -> None:
+        """Drop every registration (tests)."""
         self._entities.clear()
 
 
@@ -96,7 +123,24 @@ def entity(
     items: str | None = None,
 ):
     """Store EntityInfo at cls.__entity__ and register it; the class is returned
-    unchanged — every operation is a function over the entity, nothing is injected."""
+    unchanged — every operation is a function over the entity, nothing is injected.
+
+    Args:
+        schema: physical schema; defaults to ``REGISTRY.default_schema``.
+        table: physical table; defaults to snake_case of the class name. May
+            contain ``{placeholder}``s resolved by ``full_name(**params)``.
+        database: database prefix (SqlServer three-part names).
+        driver: a Driver subclass; defaults to ``REGISTRY.default_driver``.
+        source: mark a read-only source — no DDL, lint errors demoted to warnings.
+        description: overrides the class docstring in generated docs.
+        fks: composite foreign keys, ``{("a", "b"): "schema.table.(x,y)"}``.
+        indexes: index declarations (documentation only).
+        endpoint: HTTP sources — the URL template.
+        items: record path — XPath (xml) / dotted (json, http).
+
+    Returns:
+        The class decorator.
+    """
 
     def wrap(cls: type) -> type:
         docstring = (cls.__doc__ or "").strip() or None

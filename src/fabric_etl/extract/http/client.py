@@ -16,7 +16,18 @@ class Client:
     """httpx.Client wrapper: retry with exponential backoff, pagination, request logging.
 
     log_hook(event: dict) is called once per received response with method, url,
-    status, elapsed and a per-Client correlation_id.
+    status, elapsed and a per-Client correlation_id. Usable as a context manager.
+
+    Args:
+        base_url: prefix for relative request URLs.
+        auth: an httpx.Auth — see :mod:`fabric_etl.extract.http.auth`. A
+            QueryAuth's ``masked`` param names are hidden in log events.
+        timeout: per-request timeout in seconds.
+        headers: default headers.
+        retries: extra attempts after the first, for transport errors and
+            RETRY_STATUSES.
+        backoff: base sleep; attempt *n* waits ``backoff * 2**n`` seconds.
+        log_hook: called with one event dict per received response.
     """
 
     def __init__(
@@ -88,7 +99,17 @@ class Client:
         params: dict | None = None,
         next_url: Callable[[httpx.Response], str | None],
     ) -> Iterator[httpx.Response]:
-        """Follow pagination: yield the first page, then next_url(response) until None."""
+        """Follow pagination: yield the first page, then next_url(response) until None.
+
+        Args:
+            url: first page URL.
+            params: query params for the first request only — a next_url is
+                expected to carry its own.
+            next_url: maps a response to the next page's URL, or None to stop.
+
+        Yields:
+            One httpx.Response per page, never a collected list.
+        """
         resp = self.get(url, params=params)
         yield resp
         while (nxt := next_url(resp)) is not None:
