@@ -58,14 +58,14 @@ importing user code, so docs and lint run in CI without pyodbc, lxml, httpx or S
 
 ## Layout
 
-| package | role |
-|---|---|
-| `entities` | `@entity`, `Col`, `REGISTRY`, drivers (SqlServer / Warehouse / Lakehouse), lint |
-| `transform` | `Mapping`, `From`, `Param` — typed source→target mappings |
-| `extract` | sql / xml / csv / http / cdc readers driven by source entities |
-| `load` | DDL, drift plan, warehouse/lakehouse writers, control tables |
-| `docs` | markdown, DBML, JSON Schema, lineage, driver-reference emitters |
-| `static` | griffe-based no-import registry extraction for CI |
+| package | role | guide |
+|---|---|---|
+| `entities` | `@entity`, `Col`, `REGISTRY`, drivers (SqlServer / Warehouse / Lakehouse), lint | [Entities](guide/entities.md) |
+| `transform` | `Mapping`, `From`, `Param` — typed source→target mappings | [Transform](guide/transform.md) |
+| `extract` | sql / xml / csv / http / cdc readers driven by source entities | [Extract](guide/extract.md) |
+| `load` | DDL, drift plan, warehouse/lakehouse writers, control tables | [Load](guide/load.md) |
+| `docs` | markdown, DBML, JSON Schema, lineage, driver-reference emitters | [CLI](guide/cli.md) |
+| `static` | griffe-based no-import registry extraction for CI | [CLI](guide/cli.md) |
 
 Dependency rule: `entities`, `transform`, `docs`, `static` never import `extract` or
 `load`; everything heavy is an extra.

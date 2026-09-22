@@ -33,3 +33,9 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Guide:
+      - Entities: guide/entities.md
+      - Transform: guide/transform.md
+      - Extract: guide/extract.md
+      - Load: guide/load.md
+      - CLI: guide/cli.md
